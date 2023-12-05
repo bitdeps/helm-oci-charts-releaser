@@ -29,13 +29,16 @@ inputs:
   oci_registry:
     description: The OCI registry host
     required: true
-  oci_user:
-    description: The user used to login to the OCI registry
+  oci_username:
+    description: The username used to login to the OCI registry
+    required: true
+  oci_password:
+    description: The OCI user's password
     required: true
   install_dir:
     description: "Helm installation directory"
     required: false
-  install_only:
+  skip_helm_install:
     description: "Just install helm tool and don't release any charts"
     required: false
   skip_dependencies:
@@ -76,16 +79,16 @@ runs:
           args+=(--oci-registry "${{ inputs.oci_registry }}")
         fi
 
-        if [[ -n "${{ inputs.oci_user }}" ]]; then
-          args+=(--oci-user "${{ inputs.oci_user }}")
+        if [[ -n "${{ inputs.oci_username }}" ]]; then
+          args+=(--oci-username "${{ inputs.oci_user }}")
         fi
 
         if [[ -n "${{ inputs.install_dir }}" ]]; then
           args+=(--install-dir "${{ inputs.install_dir }}")
         fi
 
-        if [[ -n "${{ inputs.install_only }}" ]]; then
-            args+=(--install-only "${{ inputs.install_only }}")
+        if [[ -n "${{ inputs.skip_helm_install }}" ]]; then
+            args+=(--skip-helm-install "${{ inputs.skip_helm_install }}")
         fi
 
         if [[ -n "${{ inputs.skip_dependencies }}" ]]; then
@@ -104,6 +107,8 @@ runs:
             args+=(--name-pattern "${{ inputs.name_pattern }}")
         fi
 
+        export GITHUB_TOKEN="${{ inputs.github_token }}"
+        export OCI_PASSWORD="${{ inputs.oci_password }}"
         "$GITHUB_ACTION_PATH/cr.sh" "${args[@]}"
 
         if [[ -f changed_charts.txt ]]; then

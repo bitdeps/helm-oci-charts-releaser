@@ -30,10 +30,11 @@ Usage: $(basename "$0") <options>
     -h, --help                    Display help
     -v, --version                 The helm version to use (default: $DEFAULT_HELM_VERSION)"
     -d, --charts-dir              The charts directory (default either: helm, chart or charts)
-    -u, --oci-user                The OCI registry user
+    -u, --oci-username            The username used to login to the OCI registry
     -r, --oci-registry            The OCI registry
-    -p, --name-pattern            Modifies repository and release tag naming (ex. '{chartName}-chart')
-    -i, --install-only            Just install helm and don't release any charts
+    -n, --name-pattern            Modifies repository and release tag naming (ex. '{chartName}-chart')
+        --install-dir             Specifies custom install dir
+        --skip-helm-install       Skip helm installation (default: false)
         --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
         --skip-existing           Skip package upload if release exists
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
@@ -48,10 +49,10 @@ errexit() {
 main() {
   local version="$DEFAULT_HELM_VERSION"
   local charts_dir=
-  local oci_user=
+  local oci_username=
   local oci_registry=
   local install_dir=
-  local install_only=
+  local skip_helm_install=false
   local skip_dependencies=false
   local skip_existing=false
   local mark_as_latest=true
@@ -59,7 +60,8 @@ main() {
 
   parse_command_line "$@"
 
-  : "${OCI_REGISTRY_TOKEN:?Environment variable OCI_REGISTRY_TOKEN must be set}"
+  : "${GITHUB_TOKEN:?Environment variable GITHUB_TOKEN must be set}"
+  : "${OCI_PASSWORD:?Environment variable OCI_PASSWORD must be set}"
 
   REPO_ROOT=$(git rev-parse --show-toplevel)
   pushd "$REPO_ROOT" >/dev/null
@@ -124,17 +126,17 @@ parse_command_line() {
         exit 1
       fi
       ;;
-    -u | --user)
+    -u | --oci-username)
       if [[ -n "${2:-}" ]]; then
-        oci_user="$2"
+        oci_username="$2"
         shift
       else
-        echo "ERROR: '--oci-user' cannot be empty." >&2
+        echo "ERROR: '--oci-username' cannot be empty." >&2
         show_help
         exit 1
       fi
       ;;
-    -r | --registry)
+    -r | --oci-registry)
       if [[ -n "${2:-}" ]]; then
         oci_registry="$2"
         shift
@@ -144,15 +146,15 @@ parse_command_line() {
         exit 1
       fi
       ;;
-    -n | --install-dir)
+    --install-dir)
       if [[ -n "${2:-}" ]]; then
         install_dir="$2"
         shift
       fi
       ;;
-    -i | --install-only)
+    --skip-helm-install)
       if [[ -n "${2:-}" ]]; then
-        install_only="$2"
+        skip_helm_install="$2"
         shift
       fi
       ;;
@@ -174,7 +176,7 @@ parse_command_line() {
         shift
       fi
       ;;
-    -p | --name-pattern)
+    -n | --name-pattern)
       if [[ -n "${2:-}" ]]; then
         name_pattern="$2"
         shift
@@ -188,8 +190,8 @@ parse_command_line() {
     shift
   done
 
-  if [[ -z "$oci_user" ]]; then
-    echo "ERROR: '-u|--oci-user' is required." >&2
+  if [[ -z "$oci_username" ]]; then
+    echo "ERROR: '-u|--oci-username' is required." >&2
     show_help
     exit 1
   fi
@@ -214,15 +216,16 @@ parse_command_line() {
     export HELM_CONFIG_HOME="${install_dir}/.config"
     export HELM_DATA_HOME="${install_dir}.share"
   fi
-
-  if [[ -n "$install_only" ]]; then
-    echo "Will install helm tool and don't release any charts..."
-    install_helm
-    exit 0
-  fi
 }
 
 install_helm() {
+  if ( "$skip_helm_install" ) && ( which helm &> /dev/null ); then
+    echo "Skipng helm install. Using existing helm..."
+    return
+  elif ( "$skip_helm_install" ); then
+    errexit "ERROR: Remove --skip-helm-install or preinstall!"
+  fi
+
   if [[ ! -x "$install_dir/helm" ]]; then
     mkdir -p "$install_dir"
 
@@ -327,6 +330,8 @@ release_exists() {
 
 get_chart_tag() {
   local chartFile="$1" chart chart_version tag
+
+  # shellcheck disable=SC2035
   chartFile="$(ls -1 *.tgz)"
   read -r chart chart_version<<< "$(echo "${chartFile%.tgz}" | sed -E 's/-([0-9.]*)$/ \1/')"
 
@@ -339,24 +344,23 @@ get_chart_tag() {
 }
 
 release_charts() {
-  local changed_charts chart_dir chart tagName chartFile
+  local changed_charts chart_dir chart chartFile
   oci_registry="${oci_registry#oci://}"
 
-  echo "$OCI_REGISTRY_TOKEN" | echo helm registry login -u "${oci_user}" --password-stdin "${oci_registry}"
+  echo "$OCI_PASSWORD" | helm registry login -u "${oci_username}" --password-stdin "${oci_registry}"
 
   # get the changed charts
   eval "$(cat changed_charts.txt)"
-
   pushd "${install_dir}/package" >/dev/null
-
-  ## Improve: for repos containing not only charts, we might want to have a special release naming
 
   # shellcheck disable=SC2012
   for chart_dir in $changed_charts; do
-    local flags=
+    local flags tag
     local releaseExists=true
 
     pushd "$chart_dir" >/dev/null
+
+    # shellcheck disable=SC2035
     chartFile="$(ls -1 *.tgz)"
     tag=$(get_chart_tag "$chartFile")
 
@@ -373,6 +377,7 @@ release_charts() {
       gh_cli release create "$tag" $flags --notes "$(chart_description "$chart_dir")"
     fi
 
+    # tag contains version which should be stripped when pushing to OCI
     helm push "$chartFile" "oci://${oci_registry}/${tag%-*}"
     gh_cli release upload "$tag" "$chartFile"
     popd >/dev/null
