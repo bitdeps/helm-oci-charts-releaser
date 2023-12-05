@@ -64,7 +64,7 @@ main() {
   REPO_ROOT=$(git rev-parse --show-toplevel)
   pushd "$REPO_ROOT" >/dev/null
 
-  find_charts_dir 
+  find_charts_dir
   echo 'Looking up latest tag...'
 
   local latest_tag
@@ -349,7 +349,7 @@ release_charts() {
 
   pushd "${install_dir}/package" >/dev/null
 
-  ## Improve: for repos containing not only charts, we might want to have a special release naming 
+  ## Improve: for repos containing not only charts, we might want to have a special release naming
 
   # shellcheck disable=SC2012
   for chart_dir in $changed_charts; do
@@ -359,7 +359,7 @@ release_charts() {
     pushd "$chart_dir" >/dev/null
     chartFile="$(ls -1 *.tgz)"
     tag=$(get_chart_tag "$chartFile")
-  
+
     # shellcheck disable=SC2001
     read -r chart <<< "$( echo "$tag" | sed -e 's/-\([0-9.]*\)$//' )"
     ( release_exists "$tag" ) || releaseExists=false
