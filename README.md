@@ -19,15 +19,15 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 - **`oci_username`**: The username used to login to the OCI registry
 - **`oci_password`**: The OCI user's password
 - **`github-token`**: Github Actions token must be provided to manage release creation and update.
-- `name_pattern`: Modifies repository and release tag naming. For instance you chart is named as app, but you want it to be released to GH and pushed into OCI as app-chart, you can set *name_pattern* to `{chartName}-chart`.
+- `tag_name_pattern`: Specifies GitHub repository release naming pattern (ex. '{chartName}-chart'). For instance you chart is named as app, but you want it to be released as *app-chart-x.y.z*, use *tag_name_pattern* `{chartName}-chart`.
 - `skip_helm_install`: Skip helm installation (default: false)
 - `skip_dependencies`: Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
-- `skip_existing`: Skip package upload if release/tag already exists
+- `skip_upload`: Skip chart package upload if release tag already exists
 - `mark_as_latest`: When you set this to `false`, it will mark the created GitHub release not as 'latest'.
 
 ### Outputs
 
-- `changed_charts`: A comma-separated list of charts that were released on this run. Will be an empty string if no updates were detected, will be unset if `--skip_packaging` is used: in the latter case your custom packaging step is responsible for setting its own outputs if you need them.
+- `released_charts`: A comma-separated list of charts that were released on this run. Will be an empty string if no updates were detected, will be unset if `--skip_packaging` is used: in the latter case your custom packaging step is responsible for setting its own outputs if you need them.
 - `chart_version`: The version of the most recently generated charts; will be set even if no charts have been updated since the last run.
 
 ### Example Workflow
@@ -57,11 +57,11 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Run chart-releaser
-        uses: bitdeps/charts-releaser-action@v0.1.0
+        uses: bitdeps/helm-oci-charts-releaser@v0.1.0
         with:
-            oci_registry: oci://gchr.io/myuser/charts-repo
-            oci_username: registry-user
-            ocu_password: ${{ secrets.REGISTRY_PASSWORD }}
+            oci_registry: registry-1.docker.io/username
+            oci_username: username
+            oci_password: ${{ secrets.DOCKERHUB_TOKEN }}
             github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 

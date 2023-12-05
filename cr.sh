@@ -21,7 +21,9 @@ set -o pipefail
 DEFAULT_HELM_VERSION=v3.13.2
 ARCH=$(uname)
 ARCH="${ARCH,,}-amd64" # Official helm is available only for x86_64
-GITHUB_ACTIONS="${GITHUB_ACTIONS:-false}"
+
+released_charts=()
+dry_run=false
 
 show_help() {
   cat <<EOF
@@ -32,11 +34,11 @@ Usage: $(basename "$0") <options>
     -d, --charts-dir              The charts directory (default either: helm, chart or charts)
     -u, --oci-username            The username used to login to the OCI registry
     -r, --oci-registry            The OCI registry
-    -n, --name-pattern            Modifies repository and release tag naming (ex. '{chartName}-chart')
+    -t, --tag-name-pattern        Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')
         --install-dir             Specifies custom install dir
         --skip-helm-install       Skip helm installation (default: false)
         --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
-        --skip-existing           Skip package upload if release exists
+        --skip-upload             Skip the chart package upload if the GithHub release exists
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
 EOF
 }
@@ -51,20 +53,24 @@ main() {
   local charts_dir=
   local oci_username=
   local oci_registry=
+  local oci_host=
   local install_dir=
   local skip_helm_install=false
   local skip_dependencies=false
-  local skip_existing=false
+  local skip_upload=false
   local mark_as_latest=true
-  local name_pattern=
+  local tag_name_pattern=
+  local repo_root=
 
   parse_command_line "$@"
 
   : "${GITHUB_TOKEN:?Environment variable GITHUB_TOKEN must be set}"
   : "${OCI_PASSWORD:?Environment variable OCI_PASSWORD must be set}"
 
-  REPO_ROOT=$(git rev-parse --show-toplevel)
-  pushd "$REPO_ROOT" >/dev/null
+  (! $dry_run) || echo "===> DRY-RUN: TRUE"
+
+  repo_root=$(git rev-parse --show-toplevel)
+  pushd "$repo_root" >/dev/null
 
   find_charts_dir
   echo 'Looking up latest tag...'
@@ -76,23 +82,28 @@ main() {
   local changed_charts=()
   readarray -t changed_charts <<<"$(lookup_changed_charts "$latest_tag")"
 
-  echo "${changed_charts[@]}"
-
   if [[ -n "${changed_charts[*]}" ]]; then
     install_helm
+    helm_login
 
     for chart in "${changed_charts[@]}"; do
+      local desc name version info=()
+      readarray -t info <<<"$(chart_info "$chart")"
+      desc="${info[0]}"
+      name="${info[1]}"
+      version="${info[2]}"
+
       package_chart "$chart"
+      release_chart "$chart" "$name" "$version" "$desc"
     done
 
-    release_charts
-    echo "changed_charts=$(
+    echo "released_charts=$(
       IFS=,
-      echo "${changed_charts[*]}"
-    )" >changed_charts.txt
+      echo "${released_charts[*]}"
+    )" >released_charts.txt
   else
     echo "Nothing to do. No chart changes detected."
-    echo "changed_charts=" >changed_charts.txt
+    echo "released_charts=" >released_charts.txt
   fi
 
   echo "chart_version=${latest_tag}" >chart_version.txt
@@ -164,9 +175,9 @@ parse_command_line() {
         shift
       fi
       ;;
-    --skip-existing)
+    --skip-upload)
       if [[ -n "${2:-}" ]]; then
-        skip_existing="$2"
+        skip_upload="$2"
         shift
       fi
       ;;
@@ -176,9 +187,9 @@ parse_command_line() {
         shift
       fi
       ;;
-    -n | --name-pattern)
+    -t | --tag-name-pattern)
       if [[ -n "${2:-}" ]]; then
-        name_pattern="$2"
+        tag_name_pattern="$2"
         shift
       fi
       ;;
@@ -202,7 +213,7 @@ parse_command_line() {
     exit 1
   fi
 
-  if [[ -n $name_pattern && $name_pattern != *"{chartName}"* ]]; then
+  if [[ -n $tag_name_pattern && $tag_name_pattern != *"{chartName}"* ]]; then
     echo "ERROR: Name pattern must contain '{chartName}' field." >&2
     show_help
     exit 1
@@ -308,81 +319,66 @@ package_chart() {
   ( $skip_dependencies ) || flags="-u"
 
   echo "Packaging chart '$chart'..."
-  helm package "$chart" $flags -d "${install_dir}/package/$chart"
+  dry_run helm package "$chart" $flags -d "${install_dir}/package/$chart"
 }
 
-gh_cli() {
-  if ( ! $GITHUB_ACTIONS ); then
-    >&2 echo "dry run: gh $*"
-    return
+dry_run() {
+  # dry-run on
+  if ($dry_run); then
+    { set -x; echo "$@" >/dev/null; set +x; } 2>&1 | sed '/set +x/d' >&2; return
+  else
+    "$@"
   fi
-  echo gh "$@"
 }
 
-chart_description() {
-  sed -nE '/^\s*description:\s/ { s/^\s*description:\s*//; p }' < "$REPO_ROOT/$1/Chart.yaml"
+chart_info() {
+  local chart_dir="$1"
+  # use readarray with the retruned line
+  helm show chart "$chart_dir" | sed -En '/^(description|name|version)/p' | sort | sed 's/^.*: //'
+}
+
+# get github release tag
+release_tag() {
+  local name="$1" version="$2"
+  if [ -n "$tag_name_pattern" ]; then
+    tag="${tag_name_pattern//\{chartName\}/$name}"
+  fi
+  echo "${tag:-$name}-$version"
 }
 
 release_exists() {
+  local tag="$1"
   # fields: release tagName date
-  gh_cli release ls | tr -s '[:blank:]' | sed -E 's/\sLatest//' | cut -f 1 | grep -q "$1"
+  dry_run gh release ls | tr -s '[:blank:]' | sed -E 's/\sLatest//' | cut -f 1 | grep -q "$tag"
 }
 
-get_chart_tag() {
-  local chartFile="$1" chart chart_version tag
+release_chart() {
+  local flags tag chart_package chart="$1" name="$2" version="$3" desc="$4"
+  tag=$(release_tag "$name" "$version")
+  chart_package="${install_dir}/package/${chart}/${name}-${version}.tgz"
 
-  # shellcheck disable=SC2035
-  chartFile="$(ls -1 *.tgz)"
-  read -r chart chart_version<<< "$(echo "${chartFile%.tgz}" | sed -E 's/-([0-9.]*)$/ \1/')"
-
-  if [ -n "$name_pattern" ]; then
-    tag="${name_pattern//\{chartName\}/$chart}"
-  fi
-  tag="${tag:-$chart}-$chart_version"
-
-  echo "$tag"
-}
-
-release_charts() {
-  local changed_charts chart_dir chart chartFile
-  oci_registry="${oci_registry#oci://}"
-
-  echo "$OCI_PASSWORD" | helm registry login -u "${oci_username}" --password-stdin "${oci_registry}"
-
-  # get the changed charts
-  eval "$(cat changed_charts.txt)"
-  pushd "${install_dir}/package" >/dev/null
-
-  # shellcheck disable=SC2012
-  for chart_dir in $changed_charts; do
-    local flags tag
-    local releaseExists=true
-
-    pushd "$chart_dir" >/dev/null
-
-    # shellcheck disable=SC2035
-    chartFile="$(ls -1 *.tgz)"
-    tag=$(get_chart_tag "$chartFile")
-
-    # shellcheck disable=SC2001
-    read -r chart <<< "$( echo "$tag" | sed -e 's/-\([0-9.]*\)$//' )"
-    ( release_exists "$tag" ) || releaseExists=false
-
-    if ( $skip_existing && $releaseExists ); then
-      echo "Release already exists. Skipping $tag..."
-      continue
-    elif ( ! $releaseExists ); then
-      ( ! $mark_as_latest ) || flags="--latest"
-      # shellcheck disable=SC2086
-      gh_cli release create "$tag" $flags --notes "$(chart_description "$chart_dir")"
+  if (release_exists "$tag"); then
+    if ($skip_upload); then
+      echo "Release tag '$tag' is present. Skip upload to registry (skip_upload=true)..."
+      return
     fi
+  else
+    # shellcheck disable=SC2086
+    (! $mark_as_latest) || flags="--latest"
+    dry_run gh release create "$tag" $flags --notes "$desc"
+  fi
 
-    # tag contains version which should be stripped when pushing to OCI
-    helm push "$chartFile" "oci://${oci_registry}/${tag%-*}"
-    gh_cli release upload "$tag" "$chartFile"
-    popd >/dev/null
-  done
-  popd >/dev/null
+  # (re)upload package, i.e. overwrite, since skip_upload is not provided.
+  dry_run gh release upload "$tag" "$chart_package" --clobber
+  dry_run helm push "${chart_package}" "oci://${oci_registry}"
+  released_charts+=("$chart")
+}
+
+helm_login() {
+  # Get the cleared host url
+  oci_registry="${oci_registry#oci://}"
+  oci_host="${oci_registry%%/*}"
+  echo "$OCI_PASSWORD" | dry_run helm registry login -u "${oci_username}" --password-stdin "${oci_host}"
 }
 
 main "$@"

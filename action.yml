@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: "Helm OCI Charts Releaser"
-description: "Publish multiple Helm charts in an OCI registry"
+description: "Publish multiple Helm charts into an OCI registry"
 author: "dennybaa"
 branding:
   color: blue
@@ -35,6 +35,9 @@ inputs:
   oci_password:
     description: The OCI user's password
     required: true
+  github_token:
+    description: Github Actions token must be provided to manage release creation and update
+    required: true
   install_dir:
     description: "Helm installation directory"
     required: false
@@ -44,15 +47,15 @@ inputs:
   skip_dependencies:
     description: "Skip dependency update during packaging"
     required: false
-  skip_existing:
-    description: "Skip package upload if release exists"
+  skip_upload:
+    description: "Skip the chart package upload if the GithHub release exists"
     required: false
   mark_as_latest:
     description: "Mark the created GitHub release as 'latest'"
     required: false
     default: true
-  name_pattern:
-    description: "Modifies repository and release tag naming (ex. '{chartName}-chart')"
+  tag_name_pattern:
+    description: "Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')"
     required: false
 outputs:
   changed_charts:
@@ -80,7 +83,7 @@ runs:
         fi
 
         if [[ -n "${{ inputs.oci_username }}" ]]; then
-          args+=(--oci-username "${{ inputs.oci_user }}")
+          args+=(--oci-username "${{ inputs.oci_username }}")
         fi
 
         if [[ -n "${{ inputs.install_dir }}" ]]; then
@@ -95,16 +98,16 @@ runs:
             args+=(--skip-dependencies "${{ inputs.skip_dependencies }}")
         fi
 
-        if [[ -n "${{ inputs.skip_existing }}" ]]; then
-            args+=(--skip-existing "${{ inputs.skip_existing }}")
+        if [[ -n "${{ inputs.skip_upload }}" ]]; then
+            args+=(--skip-upload "${{ inputs.skip_upload }}")
         fi
 
         if [[ -n "${{ inputs.mark_as_latest }}" ]]; then
             args+=(--mark-as-latest "${{ inputs.mark_as_latest }}")
         fi
 
-        if [[ -n "${{ inputs.name_pattern }}" ]]; then
-            args+=(--name-pattern "${{ inputs.name_pattern }}")
+        if [[ -n "${{ inputs.tag_name_pattern }}" ]]; then
+            args+=(--name-pattern "${{ inputs.tag_name_pattern }}")
         fi
 
         export GITHUB_TOKEN="${{ inputs.github_token }}"
