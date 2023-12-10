@@ -349,7 +349,7 @@ release_tag() {
 release_exists() {
   local tag="$1"
   # fields: release tagName date
-  dry_run gh release ls | tr -s '[:blank:]' | sed -E 's/\sLatest//' | cut -f 1 | grep -q "$tag"
+  dry_run gh release ls | tr -s '[:blank:]' | sed -E 's/\sLatest//' | cut -f 1 | grep -q "$tag" && echo true || echo false
 }
 
 release_chart() {

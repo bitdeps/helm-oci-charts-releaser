@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -61,9 +62,9 @@ jobs:
       - name: Run chart-releaser
         uses: bitdeps/helm-oci-charts-releaser@v0.1.0
         with:
-            oci_registry: registry-1.docker.io/username
+            oci_registry: ghcr.io/username
             oci_username: username
-            oci_password: ${{ secrets.DOCKERHUB_TOKEN }}
+            oci_password: ${{ secrets.GITHUB_TOKEN }}
             github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
