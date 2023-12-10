@@ -22,7 +22,7 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 - `tag_name_pattern`: Specifies GitHub repository release naming pattern (ex. '{chartName}-chart'). For instance you chart is named as app, but you want it to be released as *app-chart-x.y.z*, use *tag_name_pattern* `{chartName}-chart`.
 - `skip_helm_install`: Skip helm installation (default: false)
 - `skip_dependencies`: Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
-- `skip_upload`: Skip chart package upload if release tag already exists
+- `skip_existing`: Skip the chart push if the GithHub release exists
 - `mark_as_latest`: When you set this to `false`, it will mark the created GitHub release not as 'latest'.
 
 ### Outputs

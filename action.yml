@@ -98,8 +98,8 @@ runs:
             args+=(--skip-dependencies "${{ inputs.skip_dependencies }}")
         fi
 
-        if [[ -n "${{ inputs.skip_upload }}" ]]; then
-            args+=(--skip-upload "${{ inputs.skip_upload }}")
+        if [[ -n "${{ inputs.skip_existing }}" ]]; then
+            args+=(--skip-existing "${{ inputs.skip_existing }}")
         fi
 
         if [[ -n "${{ inputs.mark_as_latest }}" ]]; then
@@ -107,7 +107,7 @@ runs:
         fi
 
         if [[ -n "${{ inputs.tag_name_pattern }}" ]]; then
-            args+=(--name-pattern "${{ inputs.tag_name_pattern }}")
+            args+=(--tag-name-pattern "${{ inputs.tag_name_pattern }}")
         fi
 
         export GITHUB_TOKEN="${{ inputs.github_token }}"

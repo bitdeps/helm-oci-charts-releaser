@@ -38,7 +38,7 @@ Usage: $(basename "$0") <options>
         --install-dir             Specifies custom install dir
         --skip-helm-install       Skip helm installation (default: false)
         --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
-        --skip-upload             Skip the chart package upload if the GithHub release exists
+        --skip-exisiting          Skip the chart push if the GithHub release exists
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
 EOF
 }
@@ -57,7 +57,7 @@ main() {
   local install_dir=
   local skip_helm_install=false
   local skip_dependencies=false
-  local skip_upload=false
+  local skip_existing=true
   local mark_as_latest=true
   local tag_name_pattern=
   local repo_root=
@@ -175,9 +175,9 @@ parse_command_line() {
         shift
       fi
       ;;
-    --skip-upload)
+    --skip-existing)
       if [[ -n "${2:-}" ]]; then
-        skip_upload="$2"
+        skip_existing="$2"
         shift
       fi
       ;;
@@ -353,24 +353,25 @@ release_exists() {
 }
 
 release_chart() {
-  local flags tag chart_package chart="$1" name="$2" version="$3" desc="$4"
+  local releaseExists flags tag chart_package chart="$1" name="$2" version="$3" desc="$4"
   tag=$(release_tag "$name" "$version")
   chart_package="${install_dir}/package/${chart}/${name}-${version}.tgz"
+  releaseExists=$(release_exists "$tag")
 
-  if (release_exists "$tag"); then
-    if ($skip_upload); then
-      echo "Release tag '$tag' is present. Skip upload to registry (skip_upload=true)..."
-      return
-    fi
-  else
+  if ($releaseExists && $skip_existing); then
+    echo "Release tag '$tag' is present. Skip chart push (skip_existing=true)..."
+    return
+  fi
+  dry_run helm push "${chart_package}" "oci://${oci_registry}"
+
+  if (! $releaseExists); then
     # shellcheck disable=SC2086
     (! $mark_as_latest) || flags="--latest"
-    dry_run gh release create "$tag" $flags --notes "$desc"
+    dry_run gh release create "$tag" $flags --title "$tag" --notes "$desc"
   fi
 
-  # (re)upload package, i.e. overwrite, since skip_upload is not provided.
+  # (re)upload package, i.e. overwrite, since skip_existing is not provided.
   dry_run gh release upload "$tag" "$chart_package" --clobber
-  dry_run helm push "${chart_package}" "oci://${oci_registry}"
   released_charts+=("$chart")
 }
 
