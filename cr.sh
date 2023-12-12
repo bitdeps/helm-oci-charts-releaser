@@ -271,35 +271,22 @@ lookup_latest_tag() {
 filter_charts() {
   local charts=()
   while read -r path; do
-    if [[ -f "$path" && ${path##*/} == "Chart.yaml" ]]; then
-      charts+=("${path%/Chart.yaml}")
-    elif [[ -f "$path/Chart.yaml" ]]; then
+    if [[ -f "${path}/Chart.yaml" ]]; then
       charts+=("$path")
     fi
   done
-  echo "${charts[@]}"
+  printf "%s\n" "${charts[@]}"
 }
 
 find_charts_dir() {
   local cdirs=()
-
-  if [ -n "$charts_dir" ]; then
-    return
-  fi
-
-  if [ -d "helm" ]; then cdirs+=(helm); fi
-  if [ -d "chart" ]; then cdirs+=(chart); fi
-  if [ -d "charts" ]; then cdirs+=(charts); fi
-
+  if [ -n "$charts_dir" ]; then return; fi
+  if [ -f "helm/Chart.yaml" ]; then cdirs+=("."); fi
+  if [ -f "chart/Chart.yaml" ]; then cdirs+=("."); fi
   if (( "${#cdirs[@]}" > 1 )); then
-    errexit "ERROR: Can't use several default directories: helm, chart and charts"
-  elif (( "${#cdirs[@]}" == 0 )); then
-    errexit "ERROR: No charts directory use --charts-dir"
+    errexit "ERROR: Can't use both helm and chart directory."
   fi
-
-  # shellcheck disable=SC2128
-  # get the first element
-  charts_dir="$cdirs"
+  charts_dir="${cdirs[0]:-charts/}"
 }
 
 lookup_changed_charts() {
