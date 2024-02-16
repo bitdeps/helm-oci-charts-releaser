@@ -35,8 +35,11 @@ inputs:
   oci_password:
     description: The OCI user's password
     required: true
+  oci_path:
+    description: "Subpath for the chart in oci. (eg. 'oci://${oci_registry}/${oci_path}' instead of the default 'oci://${oci_registry}/')"
+    required: false
   github_token:
-    description: Github Actions token must be provided to manage release creation and update
+    description: "Github Actions token must be provided to manage release creation and update"
     required: true
   install_dir:
     description: "Helm installation directory"
@@ -84,6 +87,10 @@ runs:
 
         if [[ -n "${{ inputs.oci_username }}" ]]; then
           args+=(--oci-username "${{ inputs.oci_username }}")
+        fi
+
+        if [[ -n "${{ inputs.oci_path }}" ]]; then
+          args+=(--oci-path "${{ inputs.oci_path }}")
         fi
 
         if [[ -n "${{ inputs.install_dir }}" ]]; then

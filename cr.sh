@@ -60,7 +60,7 @@ main() {
   local skip_dependencies=false
   local skip_existing=true
   local mark_as_latest=true
-  local oci_name=
+  local oci_path=
   local tag_name_pattern=
   local repo_root=
 
@@ -92,11 +92,7 @@ main() {
       local desc name version info=()
       readarray -t info <<<"$(chart_info "$chart")"
       desc="${info[0]}"
-      if [[ -n ${oci_pattern} ]]; then
-        name="${oci_pattern}"
-      else
-        name="${info[1]}"
-      fi
+      name="${info[1]}"
       version="${info[2]}"
 
       package_chart "$chart"
@@ -193,9 +189,9 @@ parse_command_line() {
         shift
       fi
       ;;
-      -n | --oci-name)
+      -n | --oci-path)
       if [[ -n "${2:-}" ]]; then
-        oci_name="$2"
+        oci_path="$2"
         shift
       fi
       ;;
@@ -352,7 +348,7 @@ release_exists() {
 }
 
 release_chart() {
-  local releaseExists flags tag chart_package chart="$1" name="$2" version="$3" desc="$4"
+  local releaseExists flags tag chart_package oci_registry_full chart="$1" name="$2" version="$3" desc="$4"
   tag=$(release_tag "$name" "$version")
   chart_package="${install_dir}/package/${chart}/${name}-${version}.tgz"
   releaseExists=$(release_exists "$tag")
@@ -361,7 +357,16 @@ release_chart() {
     echo "Release tag '$tag' is present. Skip chart push (skip_existing=true)..."
     return
   fi
-  dry_run helm push "${chart_package}" "oci://${oci_registry}"
+  
+  if [[ -n "${oci_path}" ]]; then
+    echo "setting the path to oci://${oci_registry}/${oci_path}/"
+    oci_registry_full="oci://${oci_registry}/${oci_path}/"
+  else
+    echo "setting the path to oci://${oci_registry} oci_path not found"
+    oci_registry_full="oci://${oci_registry}"
+  fi
+
+  dry_run helm push "${chart_package}" "${oci_registry_full}"
 
   if (! $releaseExists); then
     # shellcheck disable=SC2086
