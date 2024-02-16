@@ -34,6 +34,7 @@ Usage: $(basename "$0") <options>
     -d, --charts-dir              The charts directory (default either: helm, chart or charts)
     -u, --oci-username            The username used to login to the OCI registry
     -r, --oci-registry            The OCI registry
+    -n, --oci-name                Specifies the name of the package in the OCI registry (default is name from Chart.yml)
     -t, --tag-name-pattern        Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')
         --install-dir             Specifies custom install dir
         --skip-helm-install       Skip helm installation (default: false)
@@ -59,6 +60,7 @@ main() {
   local skip_dependencies=false
   local skip_existing=true
   local mark_as_latest=true
+  local oci_name=
   local tag_name_pattern=
   local repo_root=
 
@@ -90,7 +92,11 @@ main() {
       local desc name version info=()
       readarray -t info <<<"$(chart_info "$chart")"
       desc="${info[0]}"
-      name="${info[1]}"
+      if [[ -n ${oci_pattern} ]]; then
+        name="${oci_pattern}"
+      else
+        name="${info[1]}"
+      fi
       version="${info[2]}"
 
       package_chart "$chart"
@@ -187,7 +193,13 @@ parse_command_line() {
         shift
       fi
       ;;
-    -t | --tag-name-pattern)
+      -n | --oci-name)
+      if [[ -n "${2:-}" ]]; then
+        oci_name="$2"
+        shift
+      fi
+      ;;
+      -t | --tag-name-pattern)
       if [[ -n "${2:-}" ]]; then
         tag_name_pattern="$2"
         shift
