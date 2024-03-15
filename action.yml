@@ -84,6 +84,10 @@ runs:
           args+=(--oci-registry "${{ inputs.oci_registry }}")
         fi
 
+        if [[ -n "${{ inputs.oci_path }}" ]]; then
+          args+=(--oci-path "${{ inputs.oci_path }}")
+        fi
+
         if [[ -n "${{ inputs.oci_username }}" ]]; then
           args+=(--oci-username "${{ inputs.oci_username }}")
         fi
