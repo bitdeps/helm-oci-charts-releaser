@@ -24,6 +24,7 @@ ARCH="${ARCH,,}-amd64" # Official helm is available only for x86_64
 
 released_charts=()
 dry_run="${DRY_RUN:-false}"
+dry_run="${DRY_RUN:-false}"
 
 show_help() {
   cat <<EOF
@@ -34,6 +35,7 @@ Usage: $(basename "$0") <options>
     -d, --charts-dir              The charts directory (default either: helm, chart or charts)
     -u, --oci-username            The username used to login to the OCI registry
     -r, --oci-registry            The OCI registry
+    -p, --oci-path                The OCI path to construct full path as {{oci-registry}}/{{oci-path}}
     -t, --tag-name-pattern        Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')
         --install-dir             Specifies custom install dir
         --skip-helm-install       Skip helm installation (default: false)
