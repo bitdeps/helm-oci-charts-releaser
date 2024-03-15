@@ -24,7 +24,6 @@ ARCH="${ARCH,,}-amd64" # Official helm is available only for x86_64
 
 released_charts=()
 dry_run="${DRY_RUN:-false}"
-dry_run="${DRY_RUN:-false}"
 
 show_help() {
   cat <<EOF
@@ -351,6 +350,7 @@ release_chart() {
     echo "Release tag '$tag' is present. Skip chart push (skip_existing=true)..."
     return
   fi
+
   dry_run helm push "${chart_package}" "oci://${oci_registry#oci://}"
 
   if (! $releaseExists); then
