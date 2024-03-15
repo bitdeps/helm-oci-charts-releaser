@@ -54,7 +54,6 @@ main() {
   local charts_dir=
   local oci_username=
   local oci_registry=
-  local oci_path=
   local oci_host=
   local install_dir=
   local skip_helm_install=false
@@ -186,12 +185,6 @@ parse_command_line() {
     -l | --mark-as-latest)
       if [[ -n "${2:-}" ]]; then
         mark_as_latest="$2"
-        shift
-      fi
-      ;;
-    -n | --oci-path)
-      if [[ -n "${2:-}" ]]; then
-        oci_path="$2"
         shift
       fi
       ;;
@@ -348,7 +341,7 @@ release_exists() {
 }
 
 release_chart() {
-  local releaseExists flags tag chart_package oci_push_path chart="$1" name="$2" version="$3" desc="$4"
+  local releaseExists flags tag chart_package chart="$1" name="$2" version="$3" desc="$4"
   tag=$(release_tag "$name" "$version")
   chart_package="${install_dir}/package/${chart}/${name}-${version}.tgz"
   releaseExists=$(release_exists "$tag")
@@ -358,10 +351,7 @@ release_chart() {
     return
   fi
 
-  oci_registry="$(echo "$oci_registry" | sed -e 's@^oci://@@' -e 's@/+$@@' )"
-  oci_push_path="${oci_registry}/${oci_path}"
-  
-  dry_run helm push "${chart_package}" "oci://${oci_push_path}"
+  dry_run helm push "${chart_package}" "oci://${oci_registry#oci://}"
 
   if (! $releaseExists); then
     # shellcheck disable=SC2086
