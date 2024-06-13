@@ -50,6 +50,9 @@ inputs:
   skip_upload:
     description: "Skip the chart package upload if the GithHub release exists"
     required: false
+  skip_oci_login:
+    description: "Skip the OCI login step (rely on existing credentials)"
+    required: false
   mark_as_latest:
     description: "Mark the created GitHub release as 'latest'"
     required: false
@@ -104,6 +107,10 @@ runs:
 
         if [[ -n "${{ inputs.skip_existing }}" ]]; then
             args+=(--skip-existing "${{ inputs.skip_existing }}")
+        fi
+
+        if [[ -n "${{ inputs.skip_oci_login }}" ]]; then
+            args+=(--skip-oci-login "${{ inputs.skip_oci_login }}")
         fi
 
         if [[ -n "${{ inputs.mark_as_latest }}" ]]; then
