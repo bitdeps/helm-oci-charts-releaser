@@ -39,7 +39,7 @@ Usage: $(basename "$0") <options>
         --install-dir             Specifies custom install dir
         --skip-helm-install       Skip helm installation (default: false)
         --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
-        --skip-exisiting          Skip the chart push if the GithHub release exists
+        --skip-existing           Skip the chart push if the GitHub release exists
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
 EOF
 }
@@ -321,7 +321,7 @@ dry_run() {
 
 chart_info() {
   local chart_dir="$1"
-  # use readarray with the retruned line
+  # use readarray with the returned line
   helm show chart "$chart_dir" | sed -En '/^(description|name|version)/p' | sort | sed 's/^.*: //'
 }
 
