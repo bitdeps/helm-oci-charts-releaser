@@ -40,6 +40,7 @@ Usage: $(basename "$0") <options>
         --skip-helm-install       Skip helm installation (default: false)
         --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
         --skip-existing           Skip the chart push if the GitHub release exists
+        --skip-oci-login          Skip the OCI registry login (default: false)
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
 EOF
 }
@@ -59,6 +60,7 @@ main() {
   local skip_helm_install=false
   local skip_dependencies=false
   local skip_existing=true
+  local skip_oci_login=false
   local mark_as_latest=true
   local tag_name_pattern=
   local repo_root=
@@ -66,7 +68,9 @@ main() {
   parse_command_line "$@"
 
   : "${GITHUB_TOKEN:?Environment variable GITHUB_TOKEN must be set}"
-  : "${OCI_PASSWORD:?Environment variable OCI_PASSWORD must be set}"
+  if ( ! $skip_oci_login ) then
+    : "${OCI_PASSWORD:?Environment variable OCI_PASSWORD must be set unless you skip oci login.}"
+  fi
 
   (! $dry_run) || echo "===> DRY-RUN: TRUE"
 
@@ -182,6 +186,12 @@ parse_command_line() {
         shift
       fi
       ;;
+    --skip-oci-login)
+      if [ "${2}" == "true" ]; then
+        skip_oci_login=true
+        shift
+      fi
+      ;;
     -l | --mark-as-latest)
       if [[ -n "${2:-}" ]]; then
         mark_as_latest="$2"
@@ -202,10 +212,12 @@ parse_command_line() {
     shift
   done
 
-  if [[ -z "$oci_username" ]]; then
-    echo "ERROR: '-u|--oci-username' is required." >&2
-    show_help
-    exit 1
+  if ( ! $skip_oci_login ) then
+    if [[ -z "$oci_username"  ]]; then
+      echo "ERROR: '-u|--oci-username' is required unless you skip oci login." >&2
+      show_help
+      exit 1
+    fi
   fi
 
   if [[ -z "$oci_registry" ]]; then
@@ -365,6 +377,10 @@ release_chart() {
 }
 
 helm_login() {
+  if ( $skip_oci_login ) then
+    echo "Skipping helm login. Using existing credentials..."
+    return
+  fi
   # Get the cleared host url
   oci_registry="${oci_registry#oci://}"
   oci_host="${oci_registry%%/*}"
