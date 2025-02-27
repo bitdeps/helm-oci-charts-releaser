@@ -42,6 +42,7 @@ Usage: $(basename "$0") <options>
         --skip-existing           Skip the chart push if the GitHub release exists
         --skip-oci-login          Skip the OCI registry login (default: false)
     -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
+        --skip-gh-release         Skip the GitHub release creation
 EOF
 }
 
@@ -63,6 +64,7 @@ main() {
   local skip_oci_login=false
   local mark_as_latest=true
   local tag_name_pattern=
+  local skip_gh_release
   local repo_root=
 
   parse_command_line "$@"
@@ -201,6 +203,12 @@ parse_command_line() {
     -t | --tag-name-pattern)
       if [[ -n "${2:-}" ]]; then
         tag_name_pattern="$2"
+        shift
+      fi
+      ;;
+    --skip-gh-release)
+      if [[ -n "${2:-}" ]]; then
+        skip_gh_release="$2"
         shift
       fi
       ;;
@@ -365,15 +373,17 @@ release_chart() {
 
   dry_run helm push "${chart_package}" "oci://${oci_registry#oci://}"
 
-  if (! $releaseExists); then
+  if (! $releaseExists && ! $skip_gh_release); then
     # shellcheck disable=SC2086
     (! $mark_as_latest) || flags="--latest"
     dry_run gh release create "$tag" $flags --title "$tag" --notes "$desc"
   fi
 
   # (re)upload package, i.e. overwrite, since skip_existing is not provided.
-  dry_run gh release upload "$tag" "$chart_package" --clobber
-  released_charts+=("$chart")
+  if (! $skip_gh_release); then
+    dry_run gh release upload "$tag" "$chart_package" --clobber
+    released_charts+=("$chart")
+  fi
 }
 
 helm_login() {

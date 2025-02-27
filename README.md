@@ -25,6 +25,7 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 - `skip_existing`: Skip the chart push if the GithHub release exists
 - `skip_oci_login`: Skip the OCI login step (rely on existing credentials)
 - `mark_as_latest`: When you set this to `false`, it will mark the created GitHub release not as 'latest'.
+- `skip_gh_release`: Skip the GitHub release creation
 
 ### Outputs
 

@@ -60,6 +60,9 @@ inputs:
   tag_name_pattern:
     description: "Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')"
     required: false
+  skip_gh_release:
+    description: "Skip the GitHub release creation"
+    required: false
 outputs:
   changed_charts:
     description: "A comma-separated list of charts that were released on this run. Will be an empty string if no updates were detected, will be unset if `--skip_packaging` is used: in the latter case your custom packaging step is responsible for setting its own outputs if you need them."
@@ -119,6 +122,10 @@ runs:
 
         if [[ -n "${{ inputs.tag_name_pattern }}" ]]; then
             args+=(--tag-name-pattern "${{ inputs.tag_name_pattern }}")
+        fi
+        
+        if [[ -n "${{ inputs.skip_gh_release }}" ]]; then
+            args+=(--skip-gh-release "${{ inputs.skip_gh_release }}")
         fi
 
         export GITHUB_TOKEN="${{ inputs.github_token }}"
