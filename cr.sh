@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-DEFAULT_HELM_VERSION=v3.13.2
+DEFAULT_HELM_VERSION=v3.19.4
 ARCH=$(uname)
 ARCH="${ARCH,,}-amd64" # Official helm is available only for x86_64
 
