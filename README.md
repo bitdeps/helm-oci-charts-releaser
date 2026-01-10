@@ -13,7 +13,7 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 
 ### Inputs
 
-- `version`: The helm version to use (default: v3.13.2)
+- `version`: The helm version to use (default: v3.19.4)
 - `charts_dir`: The charts directory
 - **`oci_registry`**: The OCI registry host
 - **`oci_username`**: The username used to login to the OCI registry
