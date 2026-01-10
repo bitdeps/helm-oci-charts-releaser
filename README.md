@@ -13,7 +13,7 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 
 ### Inputs
 
-- `version`: The helm version to use (default: v3.13.2)
+- `version`: The helm version to use (default: v3.19.4)
 - `charts_dir`: The charts directory
 - **`oci_registry`**: The OCI registry host
 - **`oci_username`**: The username used to login to the OCI registry
@@ -26,6 +26,23 @@ A GitHub action for single chart or multi-chart repositories that performs push 
 - `skip_oci_login`: Skip the OCI login step (rely on existing credentials)
 - `mark_as_latest`: When you set this to `false`, it will mark the created GitHub release not as 'latest'.
 - `skip_gh_release`: Skip the GitHub release creation
+
+
+Usage: $(basename "$0") <options>
+
+    -h, --help                    Display help
+    -v, --version                 The helm version to use (default: $DEFAULT_HELM_VERSION)"
+    -d, --charts-dir              The charts directory (default either: helm, chart or charts)
+    -u, --oci-username            The username used to login to the OCI registry
+    -r, --oci-registry            The OCI registry
+    -t, --tag-name-pattern        Specifies GitHub repository release naming pattern (ex. '{chartName}-chart')
+        --install-dir             Specifies custom install dir
+        --skip-helm-install       Skip helm installation (default: false)
+        --skip-dependencies       Skip dependencies update from "Chart.yaml" to dir "charts/" before packaging (default: false)
+        --skip-existing           Skip the chart push if the GitHub release exists
+        --skip-oci-login          Skip the OCI registry login (default: false)
+    -l, --mark-as-latest          Mark the created GitHub release as 'latest' (default: true)
+        --skip-gh-release         Skip the GitHub release creation
 
 ### Outputs
 
