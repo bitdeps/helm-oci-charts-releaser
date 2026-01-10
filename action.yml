@@ -22,7 +22,7 @@ inputs:
   version:
     description: "The chart-releaser version to use (default: v3.13.2)"
     required: false
-    default: v3.13.2
+    default: v3.19.4
   charts_dir:
     description: The chart(s) directory
     required: false
